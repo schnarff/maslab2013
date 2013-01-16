@@ -1,4 +1,5 @@
 #include <iostream>
+#include <math.h>
 
 class ImageProcessing{
     private:
@@ -9,9 +10,9 @@ class ImageProcessing{
 	int maxY;
 	int Nblob;
 
-	const static float camera_height = 0.0f;
+	const static float camera_height = 8.0f;
 	const static float alpha = 320.0f/1.44f;
-	const static float beta = 240.0f/1.44f;	
+	const static float beta = 240.0f/1.44f*20;	
 
     public:
 	void classify( int* data ) {
@@ -94,10 +95,10 @@ class ImageProcessing{
 			int eta = top-bottom-120;
 			int xi = x-160;
 			float d = beta*6.0f/(eta);
-			float Z = d;//sqrt(d*d-camera_height*camera_height);
-			float X = Z*(xi)/alpha;
-			int Xcoord = (int)(X*10+160);
-			int Zcoord = (int)(Z*10+120);
+			float Z = sqrt(d*d-camera_height*camera_height);
+			float X = Z*(-xi)/alpha;
+			int Xcoord = (int)(X+160);
+			int Zcoord = (int)(-Z+120);
 			int dest = Xcoord+Zcoord*320;
 			if ( Xcoord>0 && Xcoord<320 && Zcoord>0 && Zcoord<240 )
 				map[dest] = 0xffffffff;
