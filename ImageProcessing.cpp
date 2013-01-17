@@ -1,5 +1,6 @@
 #include <iostream>
 #include <math.h>
+#define spread 1.2f
 
 class ImageProcessing{
     private:
@@ -10,9 +11,9 @@ class ImageProcessing{
 	int maxY;
 	int Nblob;
 
-	const static float camera_height = 0.0f;
-	const static float alpha = 320.0f/1.57f;
-	const static float beta = 240.0f/1.57f;	
+	const static float camera_height = 8.0f;
+	const static float alpha = 320.0f/spread;
+	const static float beta = 240.0f/spread;	
 
     public:
 	void classify( int* data ) {
@@ -28,11 +29,11 @@ class ImageProcessing{
 				data[i] = 0xff00ffff;	
 			} else if ( g > (r+b)*5/8 ) {			//GREEN
 				data[i] = 0xff00ff00;
-			} else if ( b > (r+g)*11/16 & r > g ) {		//PURPLE
+			} else if ( b > (r+g)*10/16 & r > g ) {		//PURPLE
 				data[i] = 0xffff00ff;	
-			} else if ( b > (r+g)*5/8 ) {			//BLUE
+			} else if ( b > (r+g)*6/8 ) {			//BLUE
 				data[i] = 0xffff0000;
-			} else if ( (r-g)*(r-g)<40*40 & (r-b)*(r-b)<40*40 & (g-b)*(g-b)<40*40 & r>100 & g>100 & b>100 ) {			//WHITE
+			} else if ( (r-g)*(r-g)<30*30 & (r-b)*(r-b)<30*30 & (g-b)*(g-b)<40*40 & r>110 & g>110 & b>110 ) {			//WHITE
 				data[i] = 0xffffffff;
 			} else {
 				data[i] = 0xff000000;
@@ -44,16 +45,24 @@ class ImageProcessing{
 		for ( int i= 0; i < 320*240; i++ ) {
 			map[i] = 0x00000000;
 		}
+		float prev = 0;
 		for ( int x= 0; x < 320; x+=1 ) {
 			int my = 239;
+			int mx = x;
 			int color = 0;
-			int bottom = -1;
+			int bottom = 239;
 			int top = -1;
 			int consecutive = 0;
 			//detect white region bottom
-			while ( my>0 ) {
-				int idx = x+320*my;
+			while ( my>0 & mx >= 0 & mx < 320) {
+				int idx = mx+320*my;
 				int pix = data[idx];
+				if ( pix==0xff00ff00 | pix==0xff0000ff ) {
+					if ( x > 160 ) mx-=10;
+					if ( x < 160 ) mx+=10;					
+					idx = mx+320*my;
+					pix = data[idx];
+				}
 				if ( pix==0xffffffff | pix==0xff00ffff | pix==0xffff00ff ) {
 					consecutive++;
 					color = pix;
@@ -61,7 +70,7 @@ class ImageProcessing{
 					consecutive = 0;
 					bottom = my;
 				}
-				if ( consecutive>=12 ) {
+				if ( consecutive>=6 ) {
 					break;
 				}
 				my--;
@@ -92,7 +101,7 @@ class ImageProcessing{
 						consecutive = 0;
 						top = my;
 					}
-					if ( consecutive>=3 ) {
+					if ( consecutive>=2 ) {
 						break;
 					}
 					my--;
@@ -107,9 +116,9 @@ class ImageProcessing{
 						consecutive++;
 					} else {
 						consecutive = 0;
-						top = my+6;
+						top = my;
 					}
-					if ( consecutive>=6 ) {
+					if ( consecutive>=20 ) {
 						break;
 					}
 					my--;
@@ -124,16 +133,27 @@ class ImageProcessing{
 			//Draw to map
 			if ( bottom-top < 7 || top<0 )
 				continue;
+			//
+			// d^2 = h^2+x^2+z^2
+			// tan(theta) = x/z
+			// z^2*(tan(theta)+1) = d^2 - h^2
 			int eta = bottom-top;
 			int xi = x-160;
 			float d = beta*6.0f/(eta);
-			float disc = d*d-camera_height*camera_height;
-			if ( disc<0 )
-				continue;
-			float Z = sqrt(disc);
-			float X = Z*(xi)/alpha;
-			int Xcoord = (int)(X*5+160);
-			int Zcoord = (int)(-Z*5+120);
+			//float disc = d*d-camera_height*camera_height;
+			//if ( disc<0 )
+			//	continue;
+			float theta = xi/320.0f*spread;
+			float extent = (float)tan(theta);
+			if ( extent<0 )
+				extent = -1*extent;
+			float Z = d;//sqrt(disc/(extent+1.0f));
+			if ( (Z-prev)*(Z-prev)<5 )
+				Z = (Z+prev)/2.0f;
+			prev = Z;
+			float X = (float)(Z*tan(theta));//Z*(xi)/alpha;
+			int Xcoord = (int)(X*2+160);
+			int Zcoord = (int)(-Z*2+120);
 			int dest = Xcoord+Zcoord*320;
 			if ( Xcoord>0 && Xcoord<320 && Zcoord>0 && Zcoord<240 )
 				map[dest] = color;
@@ -141,8 +161,8 @@ class ImageProcessing{
 
 		//draw viewport
 		for ( int d = 0; d < 100; d++ ) {
-			int x = (int)(sin(1.57f/2.0f)*d)+160;
-			int y = (int)(-cos(1.57f/2.0f)*d)+120;
+			int x = (int)(sin(spread/2.0f)*d)+160;
+			int y = (int)(-cos(spread/2.0f)*d)+120;
 			int idx = x+y*320;
 			map[idx] = 0xffffff00;
 			idx = -x+y*320;
