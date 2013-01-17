@@ -10,9 +10,9 @@ class ImageProcessing{
 	int maxY;
 	int Nblob;
 
-	const static float camera_height = 8.0f;
-	const static float alpha = 320.0f/1.44f;
-	const static float beta = 240.0f/1.44f*20;	
+	const static float camera_height = 0.0f;
+	const static float alpha = 320.0f/1.57f;
+	const static float beta = 240.0f/1.57f;	
 
     public:
 	void classify( int* data ) {
@@ -30,9 +30,9 @@ class ImageProcessing{
 				data[i] = 0xff00ff00;
 			} else if ( b > (r+g)*11/16 & r > g ) {		//PURPLE
 				data[i] = 0xffff00ff;	
-			} else if ( b > (r+g)*6/8 ) {			//BLUE
+			} else if ( b > (r+g)*5/8 ) {			//BLUE
 				data[i] = 0xffff0000;
-			} else if ( (r-g)*(r-g)<50*50 & (r-b)*(r-b)<50*50 & (g-b)*(g-b)<50*50 & r+g+b>250 ) {			//WHITE
+			} else if ( (r-g)*(r-g)<40*40 & (r-b)*(r-b)<40*40 & (g-b)*(g-b)<40*40 & r>100 & g>100 & b>100 ) {			//WHITE
 				data[i] = 0xffffffff;
 			} else {
 				data[i] = 0xff000000;
@@ -46,6 +46,7 @@ class ImageProcessing{
 		}
 		for ( int x= 0; x < 320; x+=1 ) {
 			int my = 239;
+			int color = 0;
 			int bottom = -1;
 			int top = -1;
 			int consecutive = 0;
@@ -53,55 +54,99 @@ class ImageProcessing{
 			while ( my>0 ) {
 				int idx = x+320*my;
 				int pix = data[idx];
-				if ( pix==0xffffffff ) {
+				if ( pix==0xffffffff | pix==0xff00ffff | pix==0xffff00ff ) {
 					consecutive++;
+					color = pix;
 				} else {
 					consecutive = 0;
-					bottom = my+5;
+					bottom = my;
 				}
-				if ( consecutive>=5 ) {
+				if ( consecutive>=12 ) {
 					break;
 				}
 				my--;
 			}
-			//detect blue region bottom
-			while ( my>0 ) {
-				int idx = x+320*my;
-				int pix = data[idx];
-				if ( pix==0xffff0000 )
-					break;
-				my--;
+			if ( bottom > 0 && bottom<230 ) {
+				for ( int q = 0; q < 3; q++ )
+					data[x+320*(bottom+q)] = 0xffffff00;
 			}
-			//detect blue region top
-			consecutive = 0;
-			while ( my>0 ) {
-				int idx = x+320*my;
-				int pix = data[idx];
-				if ( pix!=0xffff0000 ) {
-					consecutive++;
-				} else {
-					consecutive = 0;
-					top = my+3;
+
+			//IF WHITE WALL or YELLOW WALL
+			if ( color==0xffffffff | color==0xff00ffff ) {
+				//detect blue region bottom
+				while ( my>0 ) {
+					int idx = x+320*my;
+					int pix = data[idx];
+					if ( pix==0xffff0000 )
+						break;
+					my--;
 				}
-				if ( consecutive>=3 ) {
-					break;
+				//detect blue region top
+				consecutive = 0;
+				while ( my>0 ) {
+					int idx = x+320*my;
+					int pix = data[idx];
+					if ( pix!=0xffff0000 ) {
+						consecutive++;
+					} else {
+						consecutive = 0;
+						top = my;
+					}
+					if ( consecutive>=3 ) {
+						break;
+					}
+					my--;
 				}
-				my--;
+			} else if ( color==0xffff00ff ) {
+				//detect purple region top ending
+				consecutive = 0;
+				while ( my>0 ) {
+					int idx = x+320*my;
+					int pix = data[idx];
+					if ( pix!=0xffff00ff ) {
+						consecutive++;
+					} else {
+						consecutive = 0;
+						top = my+6;
+					}
+					if ( consecutive>=6 ) {
+						break;
+					}
+					my--;
+				}
+			}
+
+			if ( top > 0 && top<230 ) {
+				for ( int q = 0; q < 3; q++ )
+					data[x+320*(top+q)] = 0xffffff00;
 			}
 
 			//Draw to map
-			if ( bottom<0 || top<0 )
+			if ( bottom-top < 7 || top<0 )
 				continue;
-			int eta = top-bottom-120;
+			int eta = bottom-top;
 			int xi = x-160;
 			float d = beta*6.0f/(eta);
-			float Z = sqrt(d*d-camera_height*camera_height);
-			float X = Z*(-xi)/alpha;
-			int Xcoord = (int)(X+160);
-			int Zcoord = (int)(-Z+120);
+			float disc = d*d-camera_height*camera_height;
+			if ( disc<0 )
+				continue;
+			float Z = sqrt(disc);
+			float X = Z*(xi)/alpha;
+			int Xcoord = (int)(X*5+160);
+			int Zcoord = (int)(-Z*5+120);
 			int dest = Xcoord+Zcoord*320;
 			if ( Xcoord>0 && Xcoord<320 && Zcoord>0 && Zcoord<240 )
-				map[dest] = 0xffffffff;
+				map[dest] = color;
+		}
+
+		//draw viewport
+		for ( int d = 0; d < 100; d++ ) {
+			int x = (int)(sin(1.57f/2.0f)*d)+160;
+			int y = (int)(-cos(1.57f/2.0f)*d)+120;
+			int idx = x+y*320;
+			map[idx] = 0xffffff00;
+			idx = -x+y*320;
+			map[idx] = 0xffffff00;
 		}
 	}
 
