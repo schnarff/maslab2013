@@ -152,6 +152,7 @@ class Arduino(threading.Thread):
                 # End of packet
                 elif (mode == ';'):
                     done = True
+	self.stop()
 
     # Send initializing data to the arduino, so that it can dynamically set up
     # the actuators and sensors in memory

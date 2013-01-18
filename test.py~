@@ -1,0 +1,79 @@
+from ctypes import cdll
+from bitarray import bitarray
+libImgProc = cdll.LoadLibrary('./libimgproc.so')
+
+class ImageProcessing(object):
+    def __init__(self):
+        self.obj = libImgProc.ImageProcessing_new()
+	self.ballTemp = str(bytearray(16*10))
+	self.map = str(bytearray(4*320*240))
+	self.ballData = ""
+	self.ballCount = 0
+	self.ballList = []
+
+    def classify(self,data):
+        libImgProc.ImageProcessing_classify(self.obj,data)
+
+    def findWalls(self,data):
+        libImgProc.ImageProcessing_findWalls(self.obj,data,self.map)
+
+    def findBalls(self,data):
+        libImgProc.ImageProcessing_findBalls(self.obj,data,self.ballTemp)
+		
+
+class Ball(object):
+    def __init__(self,xi,eta,diam,color):
+	self.xi = xi
+	self.eta = eta
+	self.diam = diam
+	self.color = color
+
+#Initialize Pygame
+import pygame.camera
+import pygame.image
+pygame.camera.init()
+cams = pygame.camera.list_cameras()
+cam = pygame.camera.Camera(cams[1],(320,240))
+cam.start()
+cam.get_image()
+imgProc = ImageProcessing()
+screen = pygame.display.set_mode((320,480))
+
+import time
+
+#Game timer
+ENDTIME = time.time()+2*60
+
+#Begin Core Loop
+frames = 0
+prev = time.time()
+
+while ( time.time()<ENDTIME ):
+	#Image Capture
+	img = cam.get_image()
+	data = pygame.image.tostring(img,"RGBX")
+
+	#Image processing	
+	#imgProc.classify(data)
+	#imgProc.findWalls(data)
+
+	#Pygame output
+	imgC = pygame.image.fromstring(data,(320,240),"RGBX")
+	imgM = pygame.image.fromstring(imgProc.map,(320,240),"RGBX")
+	rect = img.get_rect()
+	screen.blit(imgC,rect)
+	rect = rect.move(0,240)
+	screen.blit(imgM,rect)
+
+	#FPS
+	pygame.display.update()
+	frames+=1
+
+	if ( time.time()-prev > 1 ):
+		print "FPS: " + str(frames)
+		frames = 0
+		prev = time.time()
+
+
+cam.stop()
+pygame.quit()
