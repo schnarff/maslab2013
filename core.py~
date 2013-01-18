@@ -12,9 +12,9 @@ class ArduinoController(object):
 	self.data = str(bytearray(4*10))
 	self.ard = ard
 
-    def process(self):
+    def process(self,gyro):
 	self.ard.notify()
-        libArduino.ArduinoController_process(self.obj,self.data)
+        libArduino.ArduinoController_process(self.obj,self.data,gyro)
 
 
 #Initialize Pygame
@@ -34,12 +34,13 @@ screen = pygame.display.set_mode((320,240))
 ard = arduino.Arduino()
 m0 = arduino.Motor(ard,0,2,11)
 m1 = arduino.Motor(ard,0,3,12)
+imumu = arduino.IMU(ard)
 ard.run()
 commArd = ArduinoController(ard)
 
 
 #Game timer
-ENDTIME = time.time()+3
+ENDTIME = time.time()+3*60
 
 while ( time.time()<ENDTIME ):
 	#Image Capture
@@ -49,12 +50,14 @@ while ( time.time()<ENDTIME ):
 	#Image processing	
 	
 	#Arduino Interface
-	commArd.process()
+	gyro = imumu.getRawValues()[0]
+	commArd.process(gyro)
 	commData = commArd.data
 	leftD = ord(commData[3])-1
 	rightD = ord(commData[1])-1
-	m1.setSpeed(leftD*ord(commData[2]))
-	m0.setSpeed(rightD*ord(commData[0]))
+	m0.setSpeed(leftD*ord(commData[2]))
+	m1.setSpeed(rightD*ord(commData[0]))
+	print str(leftD*ord(commData[2])) +", " + str(rightD*ord(commData[0]))
 
 	#Pygame output
 	img = pygame.image.fromstring(data,(320,240),"RGBX")
@@ -72,6 +75,5 @@ while ( time.time()<ENDTIME ):
 
 m0.setSpeed(0)
 m1.setSpeed(0)
-ard.stop()
 cam.stop()
 pygame.quit()
